@@ -1,13 +1,14 @@
+import os
 from flask import Flask, request, jsonify, session
 from openai import OpenAI
-import webbrowser, threading
 from PyPDF2 import PdfReader
 
 # ================= CONFIG =================
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 app = Flask(__name__)
 app.secret_key = "varxu_secret_key"
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ================= UI =================
@@ -179,3 +180,4 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
