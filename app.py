@@ -58,7 +58,7 @@ def signup():
             cur.execute("INSERT INTO users(username,password) VALUES(?,?)",(u,p))
             con.commit()
             return redirect("/login")
-        except:
+        except sqlite3.IntegrityError:
             return "<h3>User already exists</h3><a href='/signup'>Go Back</a>"
         finally:
             con.close()
@@ -146,22 +146,41 @@ const msg=document.getElementById("msg");
 function addMessage(role,text){{
   let d=document.createElement("div");
   d.className="msg "+role;
-  d.innerText=text;
+  if(role==="ai") typeWriter(d,text);
+  else d.innerText=text;
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
+}}
+
+function typeWriter(element,text,i=0){{
+  element.innerText="";
+  let interval=setInterval(()=>{{
+    element.innerText+=text.charAt(i);
+    i++;
+    chat.scrollTop=chat.scrollHeight;
+    if(i>=text.length) clearInterval(interval);
+  }},25);
 }}
 
 async function sendMessage(){{
   let t=msg.value.trim(); if(!t) return;
   addMessage("user",t);
   msg.value="";
+  let typing=document.createElement("div");
+  typing.className="msg ai";
+  typing.innerText="Varxu AI is typing...";
+  chat.appendChild(typing);
+  chat.scrollTop=chat.scrollHeight;
+
   let r=await fetch("/chat",{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{message:t}})});
   let d=await r.json();
+  chat.removeChild(typing);
   addMessage("ai",d.reply);
 }}
 
 function uploadFile(){{
   let f=document.getElementById("file").files[0];
+  if(!f) return;
   let fd=new FormData(); fd.append("file",f);
   fetch("/upload",{method:"POST",body:fd}).then(r=>r.json()).then(d=>{{
     addMessage("ai","File uploaded. You can now ask questions about it.");
@@ -179,8 +198,12 @@ def chat():
         return jsonify({"reply":"Login required"})
     user=session["user"]
     msg=request.json.get("message","")
-    res=client.responses.create(model="gpt-4.1-mini",input=msg)
-    reply=res.output_text
+    # Using OpenAI chat completion API
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content":msg}]
+    )
+    reply = response.choices[0].message.content
     con=db(); cur=con.cursor()
     cur.execute("INSERT INTO chats(username,message,reply) VALUES(?,?,?)",(user,msg,reply))
     con.commit(); con.close()
