@@ -1,10 +1,14 @@
 import os
+import webbrowser
 from flask import Flask, request, jsonify, session
 from openai import OpenAI
 from PyPDF2 import PdfReader
 
 # ================= CONFIG =================
-OPENAI_API_KEY = os.environ.get("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")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY is not set")
 
 app = Flask(__name__)
 app.secret_key = "varxu_secret_key"
@@ -12,8 +16,7 @@ app.secret_key = "varxu_secret_key"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ================= UI =================
-HTML = """
-<!DOCTYPE html>
+HTML = """<!DOCTYPE html>
 <html>
 <head>
 <title>Varxu AI</title>
@@ -40,8 +43,6 @@ button{margin-top:12px;padding:12px;width:100%;border:none;border-radius:10px;ba
 </head>
 
 <body>
-
-<!-- LOGIN -->
 <div id="login" class="center">
   <div class="box">
     <div class="brand">VAR<span>XU</span> AI</div>
@@ -51,7 +52,6 @@ button{margin-top:12px;padding:12px;width:100%;border:none;border-radius:10px;ba
   </div>
 </div>
 
-<!-- APP -->
 <div id="app" class="container hidden">
   <div class="sidebar">
     <div class="brand">VAR<span>XU</span></div>
@@ -105,18 +105,14 @@ async function send(){
   let r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t})});
   let d=await r.json();
   add("ai",d.reply);
-  if(speakOn) speak(d.reply);
 }
 
 function upload(){
   let f=document.getElementById("file").files[0];
   let fd=new FormData(); fd.append("file",f);
-  fetch("/upload",{method:"POST",body:fd}).then(r=>r.json()).then(d=>{
-    add("system","File uploaded. You can ask questions now.");
-  });
+  fetch("/upload",{method:"POST",body:fd});
 }
 
-// Voice
 function voice(){
   if("webkitSpeechRecognition" in window){
     let r=new webkitSpeechRecognition();
@@ -125,60 +121,63 @@ function voice(){
     r.start();
   }
 }
-function speak(t){
-  let u=new SpeechSynthesisUtterance(t); u.lang="en-IN"; speechSynthesis.speak(u);
-}
 function toggle(){speakOn=!speakOn;}
 </script>
 </body>
-</html>
-"""
+</html>"""
 
 # ================= ROUTES =================
 @app.route("/")
-def home(): return HTML
+def home():
+    return HTML
 
 @app.route("/login", methods=["POST"])
 def login():
     session.clear()
-    session["user"] = request.json["user"]
-    session["history"] = [{
-        "role":"system",
-        "content":"You are Varxu AI, created by Sahitya Kumar. Always state this if asked."
-    }]
+    session["history"] = [
+        {"role": "system", "content": "You are Varxu AI, created by Sahitya Kumar."}
+    ]
     return "ok"
 
 @app.route("/upload", methods=["POST"])
 def upload():
     f = request.files["file"]
-    text=""
+    text = ""
+
     if f.filename.endswith(".pdf"):
         reader = PdfReader(f)
         for p in reader.pages:
-            text += p.extract_text()
+            text += p.extract_text() or ""
     else:
         text = f.read().decode("utf-8")
 
-    session["history"].append({"role":"system","content":"User uploaded file content:\n"+text[:4000]})
-    return jsonify({"status":"ok"})
+    session["history"].append({
+        "role": "system",
+        "content": "User uploaded file content:\n" + text[:3000]
+    })
+    return jsonify({"status": "ok"})
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    msg = request.json["message"]
-    session["history"].append({"role":"user","content":msg})
-    r = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=session["history"]
+    if "history" not in session:
+        session["history"] = [
+            {"role": "system", "content": "You are Varxu AI, created by Sahitya Kumar."}
+        ]
+
+    user_msg = request.json.get("message", "")
+    session["history"].append({"role": "user", "content": user_msg})
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=session["history"]
     )
-    reply = r.choices[0].message.content
-    session["history"].append({"role":"assistant","content":reply})
+
+    reply = response.output_text
+    session["history"].append({"role": "assistant", "content": reply})
+
     return jsonify({"reply": reply})
 
-# ================= AUTO OPEN =================
-def open_browser():
-    webbrowser.open("http://127.0.0.1:5000")
-
+# ================= START =================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
-
-
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
