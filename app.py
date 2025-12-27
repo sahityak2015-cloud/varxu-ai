@@ -143,53 +143,34 @@ button.send{{width:50px;height:50px;border-radius:50%;background:#2563eb;color:w
 const chat=document.getElementById("chat");
 const msg=document.getElementById("msg");
 
-function addMessage(role,text){
+function addMessage(role,text){{
   let d=document.createElement("div");
   d.className="msg "+role;
+  d.innerText=text;
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
-  if(role==="ai"){typeWriter(d,text);}
-  else{d.innerText=text;}
-}
+}}
 
-function typeWriter(element,text,index=0){
-  element.innerText="";
-  let i=0;
-  let interval=setInterval(()=>{
-    element.innerText+=text.charAt(i);
-    i++;
-    chat.scrollTop=chat.scrollHeight;
-    if(i>=text.length) clearInterval(interval);
-  },25);
-}
-
-async function sendMessage(){
+async function sendMessage(){{
   let t=msg.value.trim(); if(!t) return;
   addMessage("user",t);
   msg.value="";
-  let typing=document.createElement("div");
-  typing.className="msg ai";
-  typing.innerText="Varxu AI is typing...";
-  chat.appendChild(typing);
-  chat.scrollTop=chat.scrollHeight;
-
-  let r=await fetch("/chat",{method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({message:t})});
+  let r=await fetch("/chat",{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{message:t}})});
   let d=await r.json();
-  chat.removeChild(typing);
   addMessage("ai",d.reply);
-}
+}}
 
-// Optional: Voice output
-function speak(text){
-  let u=new SpeechSynthesisUtterance(text);
-  u.lang="en-IN";
-  speechSynthesis.speak(u);
-}
-
+function uploadFile(){{
+  let f=document.getElementById("file").files[0];
+  let fd=new FormData(); fd.append("file",f);
+  fetch("/upload",{method:"POST",body:fd}).then(r=>r.json()).then(d=>{{
+    addMessage("ai","File uploaded. You can now ask questions about it.");
+  }});
+}}
 </script>
-
+</body>
+</html>
+    """
 
 # ================= CHAT API =================
 @app.route("/chat", methods=["POST"])
