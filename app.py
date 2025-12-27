@@ -4,7 +4,7 @@ from openai import OpenAI
 from PyPDF2 import PdfReader
 
 # ================= CONFIG =================
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("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")
 
 app = Flask(__name__)
 app.secret_key = "varxu_secret_key"
@@ -180,4 +180,5 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
 
